@@ -14,7 +14,7 @@
 use embedded_hal::blocking::spi::Write;
 use embedded_hal::spi::{Mode, Phase, Polarity};
 
-use smart_leds_trait::{SmartLedsWrite, RGB8};
+use smart_leds_trait::{SmartLedsWrite, RGBA};
 
 /// SPI mode that is needed for this crate
 ///
@@ -81,7 +81,7 @@ where
     SPI: Write<u8, Error = E>,
 {
     type Error = E;
-    type Color = RGB8;
+    type Color = RGBA<u8, u8>;
     /// Write all the items of an iterator to an apa102 strip
     fn write<T, I>(&mut self, iterator: T) -> Result<(), Self::Error>
     where
@@ -90,14 +90,15 @@ where
     {
         self.spi.write(&[0x00, 0x00, 0x00, 0x00])?;
         for item in iterator {
-            let item = item.into();
+            let item: Self::Color = item.into();
+            let brightness = (item.a >> 3) | 0b1110_000;
             match self.pixel_order {
-                PixelOrder::RGB => self.spi.write(&[0xFF, item.r, item.g, item.b])?,
-                PixelOrder::RBG => self.spi.write(&[0xFF, item.r, item.b, item.g])?,
-                PixelOrder::GRB => self.spi.write(&[0xFF, item.g, item.r, item.b])?,
-                PixelOrder::GBR => self.spi.write(&[0xFF, item.g, item.b, item.r])?,
-                PixelOrder::BRG => self.spi.write(&[0xFF, item.b, item.r, item.g])?,
-                PixelOrder::BGR => self.spi.write(&[0xFF, item.b, item.g, item.r])?,
+                PixelOrder::RGB => self.spi.write(&[brightness, item.r, item.g, item.b])?,
+                PixelOrder::RBG => self.spi.write(&[brightness, item.r, item.b, item.g])?,
+                PixelOrder::GRB => self.spi.write(&[brightness, item.g, item.r, item.b])?,
+                PixelOrder::GBR => self.spi.write(&[brightness, item.g, item.b, item.r])?,
+                PixelOrder::BRG => self.spi.write(&[brightness, item.b, item.r, item.g])?,
+                PixelOrder::BGR => self.spi.write(&[brightness, item.b, item.g, item.r])?,
             }
         }
         for _ in 0..self.end_frame_length {
